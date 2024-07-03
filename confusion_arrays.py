@@ -1,6 +1,3 @@
-from os import chdir
-os.chdir('/blue/adamginsburg/richardson.t/research/flux')
-
 import numpy as np
 from astropy.table import Table
 from astropy import units as u
@@ -11,6 +8,9 @@ from user_functions import fullgrid_seedling,nearby_models
 
 from glob import glob
 from tqdm import tqdm
+
+#from os import chdir
+#chdir('/blue/adamginsburg/richardson.t/research/flux')
 
 def smooth_bin(data,nbins):
     smooth_data = np.zeros(nbins)
@@ -60,11 +60,11 @@ parser.add_argument('-r','--row',action='store',dest='row',
                     help='row in boundary table') 
 args = parser.parse_args()
 
-b_table = Table.read('confusion_dir/boundaries.fits')
+b_table = Table.read('boundaries.fits')
 job_props = b_table[int(args.row)]
 del b_table
 
-model_dir = 'r+24_models-1.2'
+modeldir = '../r+24_models-1.2'
 geometries = ['s-p-hmi','s-p-smi','s-pbhmi','s-pbsmi','s-u-hmi','s-u-smi',     
               's-ubhmi','s-ubsmi','spu-hmi','spu-smi','spubhmi','spubsmi']
 dist = 'quant'
@@ -77,14 +77,17 @@ effs_torun = effs[job_props['SFE'][0]:job_props['SFE'][1]]
 
 print('Loading models...')
 if dist == 'none':
-    fulldat, valid_models, valid_pars = fullgrid_seedling(geometries,dist=dist)
+    fulldat, valid_models, valid_pars = fullgrid_seedling(geometries,dist=dist,
+                                                          modeldir=modeldir)
     norms = None
     transformer = None
 elif dist == 'metric':
-    fulldat, valid_models, valid_pars, norms = fullgrid_seedling(geometries,dist=dist)
+    fulldat, valid_models, valid_pars, norms = fullgrid_seedling(geometries,dist=dist,
+                                                                 modeldir=modeldir)
     transformer = None
 elif dist == 'quant':
-    fulldat, valid_models, valid_pars, transformer = fullgrid_seedling(geometries,dist=dist)
+    fulldat, valid_models, valid_pars, transformer = fullgrid_seedling(geometries,dist=dist,
+                                                                       modeldir=modeldir)
     norms = None
 
 #figure out times to sample at for each history
@@ -96,8 +99,8 @@ elif history == 'ca':
     prefix = 'competitive'
 
 track_masses = np.geomspace(0.2,50,25)
-track_dir = f'protostar_tracks/{prefix}'
-tracks = glob(f'{track_dir}/*.txt')
+trackdir = f'../protostar_tracks/{prefix}'
+tracks = glob(f'{trackdir}/*.txt')
 tracks.sort()
 track_dict = {}
 for i,mass in enumerate(track_masses):
@@ -156,13 +159,13 @@ else:
 '''
 
 included_geos = np.unique(all_geos)
-sed_dict = {g:SEDCube.read(f'{model_dir}/{g}/flux.fits') for g in included_geos}
+sed_dict = {g:SEDCube.read(f'{modeldir}/{g}/flux.fits') for g in included_geos}
 
 print('Retrieving model information...')
 for g in tqdm(included_geos):
     geo_cut = all_geos == g
     indices = []
-    stats = Table.read(f'{model_dir}/{g}/info.fits')
+    stats = Table.read(f'{modeldir}/{g}/info.fits')
     idx = np.arange(0,len(stats))
     these_names = all_names[geo_cut]
     for it,name in enumerate(these_names):
@@ -192,7 +195,7 @@ for it,det_array in enumerate(detectable):
         matrix = make_matrix(stages,classes)
     else:
         matrix = make_matrix(stages[det_array],classes[det_array])
-    np.save(f'confusion_dir/output/{args.row}_{it+1}.npy', matrix)
+    np.save(f'output/{args.row}_{it+1}.npy', matrix)
 #new code end
 
 '''
