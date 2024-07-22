@@ -104,12 +104,12 @@ def plot_matrix(matrix,stage_counts,class_counts,tec):
                          ha='center',va='center',fontsize='large')
     if tec:
         plt.title(f'{history.upper()}, ALMA Detectable at {thresh}',fontsize='large')
-        plt.savefig(f'matrices/{history}_{dist}_detectable.pdf',dpi=300,bbox_inches='tight')
+        plt.savefig(f'../matrices/{history}_{dist}_detectable.pdf',dpi=300,bbox_inches='tight')
     else:
         plt.title(f'{history.upper()}, All',fontsize='large')
-        plt.savefig(f'matrices/{history}_{dist}.pdf',dpi=300,bbox_inches='tight')
+        plt.savefig(f'../matrices/{history}_{dist}.pdf',dpi=300,bbox_inches='tight')
 
-model_dir = 'r+24_models-1.2'
+modeldir = '/blue/adamginsburg/richardson.t/research/flux/r+24_models-1.2'
 geometries = ['s-p-hmi','s-p-smi','s-pbhmi','s-pbsmi','s-u-hmi','s-u-smi',     
               's-ubhmi','s-ubsmi','spu-hmi','spu-smi','spubhmi','spubsmi']
 history = 'is'
@@ -126,19 +126,26 @@ elif history == 'ca':
     cmap = get_cmap('cividis')
 
 print('Loading models...')
-if dist == 'none':
-    fulldat, valid_models, valid_pars = fullgrid_seedling(geometries,dist=dist)
+if dist == 'log':
+    fulldat, valid_models, valid_pars, tree = fullgrid_seedling(geometries,
+                                                                dist=dist,
+                                                                modeldir=modeldir)
     norms = None
     transformer = None
 elif dist == 'metric':
-    fulldat, valid_models, valid_pars, norms = fullgrid_seedling(geometries,dist=dist)
+    fulldat, valid_models, valid_pars, norms = fullgrid_seedling(geometries,
+                                                                 dist=dist,
+                                                                 modeldir=modeldir)
+    tree = None
     transformer = None
 elif dist == 'quant':
-    fulldat, valid_models, valid_pars, transformer = fullgrid_seedling(geometries,dist=dist)
+    fulldat, valid_models, valid_pars, tree, transformer = fullgrid_seedling(geometries,
+                                                                             dist=dist,
+                                                                             modeldir=modeldir)
     norms = None
 
 track_masses = np.geomspace(0.2,50,25)
-track_dir = f'protostar_tracks/{prefix}'
+track_dir = f'../protostar_tracks/{prefix}'
 tracks = glob(f'{track_dir}/*.txt')
 tracks.sort()
 track_dict = {}
@@ -146,7 +153,7 @@ for i,mass in enumerate(track_masses):
     track_dict.update({mass:Table.read(tracks[i],format='ascii')})
 
 flux_ap = 10
-effs = [0.15, 0.25, 1/3, 0.45, 0.6]
+effs = [1/6, 1/4, 1/3, 1/2, 2/3]
 
 all_geos = []
 all_names = []
@@ -163,16 +170,15 @@ for it,mass in tqdm(enumerate(masses)):
         mcore = (mass-evol['Stellar_Mass']) / eff
 
         for step in range(len(evol)):
-            mid_fx = []; mid_fy = []
-
             names = nearby_models(tstar[step],lstar[step],mcore[step],
                                   dist=dist,fulldat=fulldat,valid_pars=valid_pars,
-                                  norms=norms,transformer=transformer)
+                                  tree=tree,norms=norms,transformer=transformer)
             for name in names:
                 this_geo, this_model = name.split('/')
-                if this_model not in all_names:
-                    all_geos.append(this_geo)
-                    all_names.append(this_model)
+                #if this_model not in all_names:
+                all_geos.append(this_geo)
+                all_names.append(this_model)
+
 all_geos = np.array(all_geos)
 all_names = np.array(all_names)                
 
@@ -183,18 +189,22 @@ detectable = []
 thresh = 1*u.mJy
 distance = 5*u.kpc
 
-sed_dict = {g:SEDCube.read(f'{model_dir}/{g}/flux.fits') for g in geometries}
+sed_dict = {g:SEDCube.read(f'{modeldir}/{g}/flux.fits') for g in geometries}
 
 print('Retrieving model information:')
 for g in tqdm(geometries):
     indices = []
-    stats = Table.read(f'{model_dir}/{g}/info.fits')
+    stats = Table.read(f'{modeldir}/{g}/info.fits')
     idx = np.arange(0,len(stats))
-    #these_names = np.unique(all_names[all_geos == g])
-    these_names = all_names[all_geos == g] #we want to double-count
+    
+    #find the stats for each model once and then map those out
+    these_names, inv = np.unique(all_names[all_geos == g],
+                                 return_inverse=True)
     for name in these_names:
         where_model = [n[:8] == name for n in stats['Model Name']]
-        indices.extend(idx[where_model])
+        indices.append(idx[where_model])
+    indices = np.array(indices)
+    indices = np.ravel(indices[inv])
 
     stages.extend([value for value in stats['Stage'][indices]])
     classes.extend([value for value in stats['Class'][indices]])

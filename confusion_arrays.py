@@ -77,17 +77,18 @@ effs_torun = effs[job_props['SFE'][0]:job_props['SFE'][1]]
 
 print('Loading models...')
 if dist == 'none':
-    fulldat, valid_models, valid_pars = fullgrid_seedling(geometries,dist=dist,
-                                                          modeldir=modeldir)
+    fulldat, valid_models, valid_pars, tree = fullgrid_seedling(geometries,dist=dist,
+                                                                modeldir=modeldir)
     norms = None
     transformer = None
 elif dist == 'metric':
     fulldat, valid_models, valid_pars, norms = fullgrid_seedling(geometries,dist=dist,
                                                                  modeldir=modeldir)
+    tree = None
     transformer = None
 elif dist == 'quant':
-    fulldat, valid_models, valid_pars, transformer = fullgrid_seedling(geometries,dist=dist,
-                                                                       modeldir=modeldir)
+    fulldat, valid_models, valid_pars, tree, transformer = fullgrid_seedling(geometries,dist=dist,
+                                                                             modeldir=modeldir)
     norms = None
 
 #figure out times to sample at for each history
@@ -127,7 +128,7 @@ for it,mass in tqdm(enumerate(interp_masses)):
         for step in range(len(evol)):
             names = nearby_models(tstar[step],lstar[step],mcore[step],
                                   dist=dist,fulldat=fulldat,valid_pars=valid_pars,
-                                  norms=norms,transformer=transformer)
+                                  tree=tree,norms=norms,transformer=transformer)
             for name in names:
                 this_geo, this_model = name.split('/')
                 #if this_model not in all_names: #double count
@@ -167,11 +168,14 @@ for g in tqdm(included_geos):
     indices = []
     stats = Table.read(f'{modeldir}/{g}/info.fits')
     idx = np.arange(0,len(stats))
-    these_names = all_names[geo_cut]
-    for it,name in enumerate(these_names):
+
+    these_names, inv = np.unique(all_names[geo_cut],
+                                 return_inverse=True)
+    for name in these_names:
         where_model = [n[:8] == name for n in stats['Model Name']]
-        idxs = idx[where_model]
-        indices.extend(idxs)
+        indices.append(idx[where_model])
+    indices = np.array(indices)
+    indices = np.ravel(indices[inv])
         
     stages.extend([value for value in stats['Stage'][indices]])
     classes.extend([value for value in stats['Class'][indices]])
@@ -191,10 +195,7 @@ classes = np.array(classes)
 detectable = np.concatenate(detectable,axis=-1).astype(bool)
 
 for it,det_array in enumerate(detectable):
-    if it == 0:
-        matrix = make_matrix(stages,classes)
-    else:
-        matrix = make_matrix(stages[det_array],classes[det_array])
+    matrix = make_matrix(stages[det_array],classes[det_array])
     np.save(f'output/{args.row}_{it+1}.npy', matrix)
 #new code end
 
