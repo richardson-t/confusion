@@ -112,7 +112,7 @@ def plot_matrix(matrix,stage_counts,class_counts,tec):
 modeldir = '/blue/adamginsburg/richardson.t/research/flux/r+24_models-1.2'
 geometries = ['s-p-hmi','s-p-smi','s-pbhmi','s-pbsmi','s-u-hmi','s-u-smi',     
               's-ubhmi','s-ubsmi','spu-hmi','spu-smi','spubhmi','spubsmi']
-history = 'is'
+history = 'tc'
 dist = 'quant'
 
 if history == 'is':
@@ -146,11 +146,10 @@ elif dist == 'quant':
 
 track_masses = np.geomspace(0.2,50,25)
 track_dir = f'../protostar_tracks/{prefix}'
-tracks = glob(f'{track_dir}/*.txt')
-tracks.sort()
 track_dict = {}
 for i,mass in enumerate(track_masses):
-    track_dict.update({mass:Table.read(tracks[i],format='ascii')})
+    track_dict.update({mass:Table.read(f'{track_dir}/protostellar_evolution_m={mass}.txt',
+                                       format='ascii')})
 
 flux_ap = 10
 effs = [1/6, 1/4, 1/3, 1/2, 2/3]
