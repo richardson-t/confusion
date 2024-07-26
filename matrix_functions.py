@@ -122,6 +122,12 @@ def make_matrix(row):
     model_times = np.array(model_times)
 
     time_cut = np.logical_and(model_times >= job_props['Age'][0],model_times <= job_props['Age'][1])
+
+    #if there aren't any models within the time bin, return a zero matrix
+    if not np.any(time_cut):
+        ret = np.zeros((6,5,6))
+        return ret
+        
     all_geos = all_geos[time_cut]
     all_names = all_names[time_cut]
 

@@ -141,75 +141,54 @@ all_names = np.array(all_names)
 model_times = np.array(model_times)
 
 time_cut = np.logical_and(model_times >= job_props['Age'][0],model_times <= job_props['Age'][1])
-all_geos = all_geos[time_cut]
-all_names = all_names[time_cut]
+if np.any(time_cut):
+    all_geos = all_geos[time_cut]
+    all_names = all_names[time_cut]
 
-stages = []
-classes = []
-
-#new code start
-distances = np.array([np.nan,0.1,0.5,1,5,10]) * u.kpc
-detectable = []
-#new code end
-'''
-if np.isfinite(distance):
-    useDetect = True
+    stages = []
+    classes = []
+    distances = np.array([np.nan,0.1,0.5,1,5,10]) * u.kpc
     detectable = []
-else:
-    useDetect = False
-'''
 
-included_geos = np.unique(all_geos)
-sed_dict = {g:SEDCube.read(f'{modeldir}/{g}/flux.fits') for g in included_geos}
+    included_geos = np.unique(all_geos)
+    sed_dict = {g:SEDCube.read(f'{modeldir}/{g}/flux.fits') for g in included_geos}
 
-print('Retrieving model information...')
-for g in tqdm(included_geos):
-    geo_cut = all_geos == g
-    indices = []
-    stats = Table.read(f'{modeldir}/{g}/info.fits')
-    idx = np.arange(0,len(stats))
+    print('Retrieving model information...')
+    for g in tqdm(included_geos):
+        geo_cut = all_geos == g
+        indices = []
+        stats = Table.read(f'{modeldir}/{g}/info.fits')
+        idx = np.arange(0,len(stats))
 
-    these_names, inv = np.unique(all_names[geo_cut],
-                                 return_inverse=True)
-    for name in these_names:
-        where_model = [n[:8] == name for n in stats['Model Name']]
-        indices.append(idx[where_model])
-    indices = np.array(indices)
-    indices = np.ravel(indices[inv])
+        these_names, inv = np.unique(all_names[geo_cut],
+                                     return_inverse=True)
+        for name in these_names:
+            where_model = [n[:8] == name for n in stats['Model Name']]
+            indices.append(idx[where_model])
+        indices = np.array(indices)
+        indices = np.ravel(indices[inv])
         
-    stages.extend([value for value in stats['Stage'][indices]])
-    classes.extend([value for value in stats['Class'][indices]])
+        stages.extend([value for value in stats['Stage'][indices]])
+        classes.extend([value for value in stats['Class'][indices]])
 
-    #new code start
-    mid_detect = []
-    for d in distances:
-        if not np.isfinite(d):
-            mid_detect.append(np.ones(len(indices)))
-        else:
-            det = sed_dict[g].val[indices,6,24] > 1 * u.mJy * (d / u.kpc)**2
-            mid_detect.append([value for value in det])
-    detectable.append(mid_detect)
+        mid_detect = []
+        for d in distances:
+            if not np.isfinite(d):
+                mid_detect.append(np.ones(len(indices)))
+            else:
+                det = sed_dict[g].val[indices,6,24] > 1 * u.mJy * (d / u.kpc)**2
+                mid_detect.append([value for value in det])
+        detectable.append(mid_detect)
 
-stages = np.array(stages)
-classes = np.array(classes)
-detectable = np.concatenate(detectable,axis=-1).astype(bool)
+    stages = np.array(stages)
+    classes = np.array(classes)
+    detectable = np.concatenate(detectable,axis=-1).astype(bool)
 
-for it,det_array in enumerate(detectable):
-    matrix = make_matrix(stages[det_array],classes[det_array])
-    np.save(f'output/{args.row}_{it+1}.npy', matrix)
-#new code end
+    for it,det_array in enumerate(detectable):
+        matrix = make_matrix(stages[det_array],classes[det_array])
+        np.save(f'output/{args.row}_{it}.npy', matrix)
 
-'''
-    if useDetect:
-        det = sed_dict[g].val[indices,6,24] > 1 * u.mJy * (distance / u.kpc)**2
-        detectable.extend([value for value in det])
-    
-stages = np.array(stages)
-classes = np.array(classes)
-if useDetect:
-    stages = stages[detectable]
-    classes = classes[detectable]
-
-matrix = make_matrix(stages,classes)
-np.save(f'confusion_dir/output/{args.row}.npy', matrix)
-'''
+else:
+    matrix = np.zeros((5,6))
+    for it in range(6):
+        np.save(f'output/{args.row}_{it}.npy',matrix)
