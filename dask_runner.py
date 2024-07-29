@@ -2,7 +2,7 @@ import numpy as np
 from astropy.table import Table
 
 import dask
-from dask.distributed import Client
+from dask.distributed import Client,as_completed
 from dask_jobqueue import SLURMCluster
 
 from matrix_functions import make_matrix
@@ -26,7 +26,7 @@ print('Starting cluster.')
 cluster = SLURMCluster(cores=1,
                        processes=1,
                        memory='48GB',
-                       walltime='24:00:00',
+                       walltime='6:00:00',
                        account='astronomy-dept',
                        job_extra_directives=['--qos=astronomy-dept-b',
                                              '--output=log/%A.out',
@@ -41,11 +41,10 @@ cluster = SLURMCluster(cores=1,
 cluster.adapt(minimum=0,maximum=250)
 client = Client(cluster)
 print('Starting computation.')
-futures = client.map(run_row,torun)
+futures = client.map(run_row,torun,retries=1)
 print('Mapping completed.')
 
-for it,future in tqdm(enumerate(futures)):
-    result = future.result()
+for future, result in tqdm(as_completed(futures,with_results=True)):
     mat = result[0]
     row = result[1]
     for d,sub_mat in enumerate(mat):
@@ -53,3 +52,6 @@ for it,future in tqdm(enumerate(futures)):
 
 client.close()
 cluster.close()
+
+#for it,future in tqdm(enumerate(futures)):
+#    result = future.result()   
